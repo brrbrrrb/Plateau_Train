@@ -568,7 +568,7 @@ class PlateauTrainer:
                 scale_pos_weight=scale_pos_weight,
                 eval_metric='logloss',
                 n_jobs=-1,
-                use_label_encoder=False
+                # use_label_encoder=False
             ),
             'random_forest': RandomForestClassifier(
                 n_jobs=-1,
@@ -1167,3 +1167,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
