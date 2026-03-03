@@ -296,7 +296,7 @@ class ResultsVisualizer:
         duration = plateau_times_end - plateau_times_start
         num_points = last_plateau - first_plateau + 1
 
-        ax.set_title(f'Detailed View: Experiment {exp_name}\n'
+        ax.set_title(f'Detailed View. Test Data - Experiment {exp_name}\n'
                     f'From first to last Predicted Plateau '
                     f'({plateau_times_start:.1f}s to {plateau_times_end:.1f}s, '
                     f'{num_points} points, Δ{duration:.1f}s)',
@@ -470,4 +470,5 @@ def main():
 
 
 if __name__ == "__main__":
+
     main()
