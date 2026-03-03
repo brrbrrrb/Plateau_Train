@@ -5,6 +5,7 @@ Plateau Detection System v2.2 (with Bayesian Optimization)
 - BayesSearchCV для XGBoost и Random Forest
 - gp_minimize для оптимизации архитектуры BiLSTM
 - Автоматическое сохранение результатов с временной меткой и архивация
+- Поддержка XLSX файлов с объединением всех листов
 """
 
 import pandas as pd
@@ -439,16 +440,48 @@ class PlateauTrainer:
         # Хранилище для лучших параметров
         self.best_params = {}
 
-    def load_data(self):
-        """Загрузка данных"""
-        print("Loading data...")
-        train_path = self.config.data_dir / "train_binary.csv"
-        test_path = self.config.data_dir / "test_binary.csv"
+    def _read_excel_all_sheets(self, path: Path) -> pd.DataFrame:
+        """
+        Чтение всех листов из Excel файла и объединение в один DataFrame.
+        Если колонка 'experiment' отсутствует, используется имя листа.
+        """
+        print(f"  Reading {path.name}...")
+        
+        # Получаем список всех листов
+        xl_file = pd.ExcelFile(path)
+        sheets = xl_file.sheet_names
+        
+        dfs = []
+        for sheet_name in sheets:
+            print(f"    Processing sheet: {sheet_name}")
+            df = pd.read_excel(xl_file, sheet_name=sheet_name)
+            
+            # Если нет колонки experiment, используем имя листа как идентификатор эксперимента
+            if 'experiment' not in df.columns:
+                df['experiment'] = str(sheet_name)
+                
+            dfs.append(df)
+        
+        # Объединяем все листы в один DataFrame
+        combined_df = pd.concat(dfs, ignore_index=True)
+        print(f"    Total rows: {len(combined_df)} (from {len(sheets)} sheets)")
+        
+        return combined_df
 
-        self.train_df = pd.read_csv(train_path)
-        self.test_df = pd.read_csv(test_path)
+    def load_data(self):
+        """Загрузка данных из XLSX файлов (все листы объединяются в один DataFrame)"""
+        print("Loading data...")
+        # Изменено: теперь читаем .xlsx вместо .csv
+        train_path = self.config.data_dir / "train_binary.xlsx"
+        test_path = self.config.data_dir / "test_binary.xlsx"
+
+        # Читаем все листы и объединяем
+        self.train_df = self._read_excel_all_sheets(train_path)
+        self.test_df = self._read_excel_all_sheets(test_path)
 
         print(f"Train: {self.train_df.shape}, Test: {self.test_df.shape}")
+        print(f"Unique experiments in train: {self.train_df['experiment'].nunique()}")
+        print(f"Unique experiments in test: {self.test_df['experiment'].nunique()}")
         print(f"Train plateau ratio: {(self.train_df['zones'] == 0).mean():.3f}")
 
     def prepare_features(self):
@@ -529,7 +562,7 @@ class PlateauTrainer:
                 scale_pos_weight=scale_pos_weight,
                 eval_metric='logloss',
                 n_jobs=-1,
-                # use_label_encoder=False
+                use_label_encoder=False
             ),
             'random_forest': RandomForestClassifier(
                 n_jobs=-1,
@@ -1127,5 +1160,4 @@ def main():
         print(f"📂 Содержимое: модели, метрики, предсказания, параметры")
 
 if __name__ == "__main__":
-
     main()
