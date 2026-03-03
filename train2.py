@@ -5,7 +5,7 @@ Plateau Detection System v2.2 (with Bayesian Optimization)
 - BayesSearchCV для XGBoost и Random Forest
 - gp_minimize для оптимизации архитектуры BiLSTM
 - Автоматическое сохранение результатов с временной меткой и архивация
-- Поддержка XLSX файлов с объединением всех листов
+- Поддержка XLSX файлов с объединением всех листов (только первые 4 столбца)
 """
 
 import pandas as pd
@@ -442,10 +442,10 @@ class PlateauTrainer:
 
     def _read_excel_all_sheets(self, path: Path) -> pd.DataFrame:
         """
-        Чтение всех листов из Excel файла и объединение в один DataFrame.
-        Если колонка 'experiment' отсутствует, используется имя листа.
+        Чтение первых 4 столбцов (A:D) из всех листов Excel.
+        Ожидаемые заголовки: time, temp, zone, experiment
         """
-        print(f"  Reading {path.name}...")
+        print(f"  Reading {path.name} (columns A:D)...")
         
         # Получаем список всех листов
         xl_file = pd.ExcelFile(path)
@@ -454,9 +454,14 @@ class PlateauTrainer:
         dfs = []
         for sheet_name in sheets:
             print(f"    Processing sheet: {sheet_name}")
-            df = pd.read_excel(xl_file, sheet_name=sheet_name)
+            # Читаем только первые 4 столбца (A:D)
+            df = pd.read_excel(xl_file, sheet_name=sheet_name, usecols="A:D")
             
-            # Если нет колонки experiment, используем имя листа как идентификатор эксперимента
+            # Переименовываем 'zone' в 'zones' для совместимости с остальным кодом
+            if 'zone' in df.columns and 'zones' not in df.columns:
+                df.rename(columns={'zone': 'zones'}, inplace=True)
+            
+            # Если нет колонки experiment, используем имя листа
             if 'experiment' not in df.columns:
                 df['experiment'] = str(sheet_name)
                 
@@ -465,21 +470,22 @@ class PlateauTrainer:
         # Объединяем все листы в один DataFrame
         combined_df = pd.concat(dfs, ignore_index=True)
         print(f"    Total rows: {len(combined_df)} (from {len(sheets)} sheets)")
+        print(f"    Columns: {list(combined_df.columns)}")
         
         return combined_df
 
     def load_data(self):
-        """Загрузка данных из XLSX файлов (все листы объединяются в один DataFrame)"""
+        """Загрузка данных из XLSX файлов (только первые 4 столбца, все листы)"""
         print("Loading data...")
         # Изменено: теперь читаем .xlsx вместо .csv
         train_path = self.config.data_dir / "train_binary.xlsx"
         test_path = self.config.data_dir / "test_binary.xlsx"
 
-        # Читаем все листы и объединяем
+        # Читаем все листы и объединяем (только столбцы A-D)
         self.train_df = self._read_excel_all_sheets(train_path)
         self.test_df = self._read_excel_all_sheets(test_path)
 
-        print(f"Train: {self.train_df.shape}, Test: {self.test_df.shape}")
+        print(f"\nTrain shape: {self.train_df.shape}, Test shape: {self.test_df.shape}")
         print(f"Unique experiments in train: {self.train_df['experiment'].nunique()}")
         print(f"Unique experiments in test: {self.test_df['experiment'].nunique()}")
         print(f"Train plateau ratio: {(self.train_df['zones'] == 0).mean():.3f}")
